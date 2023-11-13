@@ -1,2 +1,3 @@
 ---
-# vars file for docker
+distribution_name: debian
+gpg_key_location: /etc/apt/keyrings/docker.asc

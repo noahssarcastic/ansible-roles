@@ -1,1 +1,71 @@
 ---
+- name: Gather distribution_release
+  ansible.builtin.setup:
+    gather_subset:
+      - "distribution_release"
+
+- name: Install apt repo setup dependencies
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+  become: true
+
+- name: Create keyring directory
+  ansible.builtin.file:
+    name: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+  become: true
+
+- name: Download keyring
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/{{ distribution_name }}/gpg
+    dest: "{{ gpg_key_location }}"
+    mode: "0644"
+    force: true
+  become: true
+
+- name: Get architecture information
+  ansible.builtin.command: dpkg --print-architecture
+  changed_when: false
+  register: arch
+
+- name: Register apt repository
+  ansible.builtin.apt_repository:
+    filename: /etc/apt/sources.list.d/docker
+    repo: >-
+      deb [arch={{ arch.stdout_lines[0] }} signed-by={{ gpg_key_location }}]
+      https://download.docker.com/linux/{{ distribution_name }}
+      {{ ansible_distribution_release }} stable
+  become: true
+
+- name: Install Docker dependencies
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    update_cache: true
+  become: true
+
+- name: Ensure group "docker" exists
+  ansible.builtin.group:
+    name: docker
+    state: present
+  become: true
+
+- name: Add users to group "docker"
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users }}"
+  become: true
